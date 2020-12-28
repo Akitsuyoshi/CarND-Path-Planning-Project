@@ -7,6 +7,7 @@
 
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
+#include "cost.h"
 #include "helpers.h"
 #include "json.hpp"
 #include "spline.h"
@@ -99,12 +100,27 @@ int main() {
 
           if (prev_size > 0) {
             car_s = end_path_s;
+            car_d = end_path_d;
+          }
+
+          // Possible next lanes
+          vector<int> available_lanes;
+          available_lanes.push_back(lane);
+
+          if (lane == 0) {
+            available_lanes.push_back(1);
+          } else if (lane == 1) {
+            available_lanes.push_back(0);
+            available_lanes.push_back(2);
+          } else if (lane == 2) {
+            available_lanes.push_back(1);
           }
 
           bool too_close = false;
 
           for (int i = 0; i < sensor_fusion.size(); i++) {
-            double d = sensor_fusion[i][6];
+            const double d = sensor_fusion[i][6];
+
             if (d < (2 + 4 * lane + 2) && d > (2 + 4 * lane - 2)) {
               const double vx = sensor_fusion[i][3];
               const double vy = sensor_fusion[i][4];
@@ -113,25 +129,59 @@ int main() {
               double check_car_s = sensor_fusion[i][5];
               check_car_s += (double)prev_size * 0.02 * check_speed;
               if (check_car_s > car_s && (check_car_s - car_s) < 30) {
-                // ref_vel = 29.5;
                 too_close = true;
               }
             }
           }
 
           if (too_close) {
-            ref_vel -= .224;
-          } else if (ref_vel < 49.5) {
+            vector<float> costs;
+
+            for (int i = 0; i < available_lanes.size(); i++) {
+              float cost = calculate_cost();
+              costs.push_back(cost);
+            }
+
+            // The most min cost tragectory to lane
+            int best_lane;
+            float min_cost = std::numeric_limits<float>::infinity();
+
+            // Find best lane
+            for (int i = 0; i < available_lanes.size(); i++) {
+              int available_lane = available_lanes[i];
+              float cost = costs[i];
+              if (cost > min_cost) {
+                continue;
+              }
+
+              min_cost = cost;
+              best_lane = available_lane;
+            }
+            // If car cannot change lane
+            if (best_lane == lane) {
+              ref_vel -= .224;
+            }
+            // Set the most min cost lane
+            lane = best_lane;
+          }
+
+          if (ref_vel < 49.5) {
             ref_vel += .224;
           }
 
-          double ref_x = car_x;
-          double ref_y = car_y;
-          double ref_x_prev = ref_x - cos(car_yaw);
-          double ref_y_prev = ref_y - sin(car_yaw);
-          double ref_yaw = deg2rad(car_yaw);
+          double ref_x;
+          double ref_y;
+          double ref_x_prev;
+          double ref_y_prev;
+          double ref_yaw;
 
-          if (prev_size > 1) {
+          if (prev_size == 0) {
+            ref_x = car_x;
+            ref_y = car_y;
+            ref_x_prev = ref_x - cos(car_yaw);
+            ref_y_prev = ref_y - sin(car_yaw);
+            ref_yaw = deg2rad(car_yaw);
+          } else {
             ref_x = previous_path_x[prev_size - 1];
             ref_y = previous_path_y[prev_size - 1];
             ref_x_prev = previous_path_x[prev_size - 2];
@@ -206,11 +256,6 @@ int main() {
             next_x_vals.push_back(x_point);
             next_y_vals.push_back(y_point);
           }
-
-          /**
-           * TODO: define a path made up of (x,y) points that the car will visit
-           *   sequentially every .02 seconds
-           */
 
           json msgJson;
           msgJson["next_x"] = next_x_vals;
