@@ -25,11 +25,12 @@ float calculate_cost(double car_s, double check_car_s) {
   vector<std::function<float(double car_s, double check_car_s)>>
       cost_functions = {collision_cost, buffer_cost};
   vector<float> weights = {COLLISION, BUFFER};
-  float cost = 0.;
 
+  float cost = 0.;
   for (int i = 0; i < cost_functions.size(); i++) {
     cost += weights[i] * cost_functions[i](car_s, check_car_s);
   }
+
   return cost;
 }
 
