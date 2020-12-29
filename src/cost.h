@@ -6,7 +6,7 @@ using std::vector;
 const int BUFFER_BETWEEN_CAR = 30;
 // Weights for each cost functions
 const float COLLISION = pow(10, 6);
-const float BUFFER = pow(10, 5);
+const float BUFFER = pow(10, 4);
 
 float logistic(double x) { return 2.0 / (1 + exp(-x)) - 1.0; }
 
