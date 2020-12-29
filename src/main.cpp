@@ -100,7 +100,6 @@ int main() {
 
           if (prev_size > 0) {
             car_s = end_path_s;
-            car_d = end_path_d;
           }
 
           // Possible next lanes
@@ -128,17 +127,35 @@ int main() {
 
               double check_car_s = sensor_fusion[i][5];
               check_car_s += (double)prev_size * 0.02 * check_speed;
-              if (check_car_s > car_s && (check_car_s - car_s) < 30) {
+              if (check_car_s > car_s &&
+                  (check_car_s - car_s) < BUFFER_BETWEEN_CAR) {
                 too_close = true;
               }
             }
           }
 
+          // Considers lane changes only when car ahead is too close
           if (too_close) {
             vector<float> costs;
 
             for (int i = 0; i < available_lanes.size(); i++) {
-              float cost = calculate_cost();
+              const int available_lane = available_lanes[i];
+              float cost = 0.;
+
+              for (int i = 0; i < sensor_fusion.size(); i++) {
+                const double d = sensor_fusion[i][6];
+
+                if (d < (2 + 4 * available_lane + 2) &&
+                    d > (2 + 4 * available_lane - 2)) {
+                  const double vx = sensor_fusion[i][3];
+                  const double vy = sensor_fusion[i][4];
+                  const double check_speed = sqrt(vx * vx + vy * vy);
+
+                  double check_car_s = sensor_fusion[i][5];
+                  check_car_s += (double)prev_size * 0.02 * check_speed;
+                  cost += calculate_cost(car_s, check_car_s);
+                }
+              }
               costs.push_back(cost);
             }
 
@@ -157,15 +174,14 @@ int main() {
               min_cost = cost;
               best_lane = available_lane;
             }
-            // If car cannot change lane
+            // If car cannot change lane, car decreases the velocity to prevent
+            // collision
             if (best_lane == lane) {
               ref_vel -= .224;
             }
             // Set the most min cost lane
             lane = best_lane;
-          }
-
-          if (ref_vel < 49.5) {
+          } else if (ref_vel < 49.5) {
             ref_vel += .224;
           }
 
