@@ -100,6 +100,14 @@ int main() {
 
           if (prev_size > 0) {
             car_s = end_path_s;
+            car_d = end_path_d;
+
+            // Update lane
+            if (car_d >= (2 + 4 * lane + 2)) {
+              lane++;
+            } else if (car_d <= (2 + 4 * lane - 2)) {
+              lane--;
+            }
           }
 
           // Possible next lanes
